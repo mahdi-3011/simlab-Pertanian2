@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login – AutoLab</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+.login-form { display:flex; flex-direction:column; gap:18px; }
+.login-btn  { width:100%; padding:13px; font-size:15px; justify-content:center; }
+.login-err  { background:rgba(220,38,38,.1); border:1px solid rgba(220,38,38,.3); border-radius:8px; padding:10px 14px; font-size:13px; color:#f87171; display:none; }
+.login-err.show { display:block; }
+.login-divider { text-align:center; color:var(--text-muted); font-size:12px; margin:4px 0; position:relative; }
+.login-divider::before,.login-divider::after { content:''; position:absolute; top:50%; width:40%; height:1px; background:var(--border); }
+.login-divider::before { left:0; } .login-divider::after { right:0; }
+</style>
+</head>
+<body>
+<div class="login-bg">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="pertanian.png" alt="Logo AutoLab" class="login-logo-img">
+      <h1>SimLAB</h1>
+      <p>Sistem Informasi Manajemen Laboratorium<br>Jurusan Teknologi Pertanian</p>
+    </div>
+
+    <div id="login-err" class="login-err"></div>
+
+    <div class="login-form">
+      <div class="form-group">
+        <label class="label-req">Username</label>
+        <input type="text" id="username" placeholder="Masukkan username" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="label-req">Password</label>
+        <div class="input-group">
+          <input type="password" id="password" placeholder="Masukkan password" autocomplete="current-password">
+          <span class="input-group-icon" onclick="togglePass()">👁</span>
+        </div>
+      </div>
+      <button class="btn btn-primary login-btn" onclick="doLogin()">🚀 Masuk ke Sistem</button>
+    </div>
+
+    <div class="login-demo">
+      <b>Demo Login:</b><br>
+      Admin → <b>admin</b> / <b>admin123</b><br>
+      Tamu &nbsp;→ <b>tamu</b> &nbsp;/ <b>tamu123</b>
+    </div>
+  </div>
+</div>
+<script src="storage.js"></script>
+<script src="utils.js"></script>
+<script src="crud.js"></script>
+<script>
+  const sess = Storage.getSession();
+  if (sess) window.location.href = sess.role === 'admin' ? 'admin-dashboard.html' : 'tamu-dashboard.html';
+
+  function togglePass() { const p=document.getElementById('password'); p.type=p.type==='password'?'text':'password'; }
+
+  function doLogin() {
+    const u=document.getElementById('username').value.trim();
+    const p=document.getElementById('password').value;
+    const err=document.getElementById('login-err');
+    err.classList.remove('show');
+    if(!u||!p){err.textContent='Username dan password wajib diisi.';err.classList.add('show');return;}
+    const user=Storage.getUserByUsername(u);
+    if(!user||Utils.decodePass(user.password)!==p){err.textContent='Username atau password salah.';err.classList.add('show');return;}
+    if(!user.active){err.textContent='Akun Anda dinonaktifkan. Hubungi admin.';err.classList.add('show');return;}
+    Storage.setSession(user);
+    Storage.addRiwayat(`Login: ${user.nama}`,user.nama);
+    Toast.success('Selamat datang, '+user.nama+'!');
+    setTimeout(()=>{window.location.href=user.role==='admin'?'admin-dashboard.html':'tamu-dashboard.html';},600);
+  }
+  document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>
