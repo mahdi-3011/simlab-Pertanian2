@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Profil – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header"><div><h2>👤 Profil Saya</h2><div class="breadcrumb">Akun › Profil</div></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:20px" id="profil-grid">
+        <!-- Left -->
+        <div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="profile-cover"></div>
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar" id="avatar-display">?</div>
+            </div>
+            <div class="profile-info">
+              <div class="profile-name" id="display-nama">-</div>
+              <div class="profile-role" id="display-role">-</div>
+              <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;font-size:13px">
+                <div style="display:flex;gap:8px;color:var(--text-muted)">📧 <span id="display-email">-</span></div>
+                <div style="display:flex;gap:8px;color:var(--text-muted)">📱 <span id="display-hp">-</span></div>
+                <div style="display:flex;gap:8px;color:var(--text-muted)">🗓️ Bergabung: <span id="display-tgl">-</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px;text-align:center">
+            <div class="card-title" style="margin-bottom:12px">📱 QR Identitas</div>
+            <img id="qr-img" style="border-radius:8px;max-width:160px;border:1px solid var(--border)">
+          </div>
+        </div>
+        <!-- Right -->
+        <div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">✏️ Edit Profil</span></div>
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+              <div id="foto-preview" style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#0a0a0a;overflow:hidden;flex-shrink:0">?</div>
+              <div>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('foto-input').click()">📷 Ganti Foto</button>
+                <button class="btn btn-ghost btn-sm" onclick="removeFoto()">Hapus</button>
+                <div class="form-hint" style="margin-top:4px">JPG/PNG max 1MB</div>
+              </div>
+              <input type="file" id="foto-input" accept="image/*" style="display:none" onchange="handleFoto(this)">
+            </div>
+            <form id="form-profil" onsubmit="return false">
+              <div class="form-grid">
+                <div class="form-group"><label class="label-req">Nama Lengkap</label><input name="nama" id="f-nama" required></div>
+                <div class="form-group"><label>Username</label><input name="username" id="f-username" readonly style="opacity:.5;cursor:not-allowed"></div>
+                <div class="form-group"><label>Email</label><input name="email" id="f-email" type="email"></div>
+                <div class="form-group"><label>Nomor HP</label><input name="nomorHP" id="f-hp" type="tel"></div>
+              </div>
+              <input type="hidden" id="foto-data">
+              <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveProfil()">💾 Simpan Profil</button></div>
+            </form>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><span class="card-title">🔑 Ganti Password</span></div>
+            <div class="form-grid col-1">
+              <div class="form-group"><label class="label-req">Password Lama</label><div class="input-group"><input type="password" id="old-pass" placeholder="Password saat ini"><span class="input-group-icon" onclick="toggleP('old-pass')">👁</span></div></div>
+              <div class="form-group"><label class="label-req">Password Baru</label><div class="input-group"><input type="password" id="new-pass" placeholder="Min. 6 karakter"><span class="input-group-icon" onclick="toggleP('new-pass')">👁</span></div></div>
+              <div class="form-group"><label class="label-req">Konfirmasi</label><div class="input-group"><input type="password" id="confirm-pass" placeholder="Ulangi password baru"><span class="input-group-icon" onclick="toggleP('confirm-pass')">👁</span></div></div>
+            </div>
+            <div style="margin-top:12px"><button class="btn btn-primary" onclick="gantiPassword()">🔑 Ganti Password</button></div>
+          </div>
+          <div class="card" style="margin-top:16px;border-color:rgba(220,38,38,.3)" id="danger-zone">
+            <div class="card-header"><span class="card-title" style="color:var(--red)">⚠️ Danger Zone</span></div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Menghapus akun bersifat permanen. Semua data Anda akan ikut terhapus.</p>
+            <button class="btn btn-danger" onclick="hapusAkun()">🗑️ Hapus Akun Saya</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('profil','👤 Profil');
+if(currentUser)loadProfil();
+function toggleP(id){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';}
+function loadProfil(){
+  const u=Storage.getUserById(currentUser.id)||currentUser;
+  document.getElementById('display-nama').textContent=u.nama;
+  document.getElementById('display-role').textContent=u.role==='admin'?'🛡️ Administrator':'👤 Tamu';
+  document.getElementById('display-email').textContent=u.email||'-';
+  document.getElementById('display-hp').textContent=u.nomorHP||'-';
+  document.getElementById('display-tgl').textContent=Utils.formatDate(u.createdAt);
+  document.getElementById('f-nama').value=u.nama;
+  document.getElementById('f-username').value=u.username;
+  document.getElementById('f-email').value=u.email||'';
+  document.getElementById('f-hp').value=u.nomorHP||'';
+  document.getElementById('foto-data').value=u.foto||'';
+  const av=document.getElementById('avatar-display');
+  const fp=document.getElementById('foto-preview');
+  if(u.foto){av.innerHTML=`<img src="${u.foto}" style="width:100%;height:100%;object-fit:cover">`;fp.innerHTML=`<img src="${u.foto}" style="width:100%;height:100%;object-fit:cover">`;}
+  else{av.textContent=u.nama.charAt(0).toUpperCase();fp.textContent=u.nama.charAt(0).toUpperCase();}
+  const qrData=`AutoLab|${u.id}|${u.nama}|${u.username}|${u.role}`;
+  document.getElementById('qr-img').src=Utils.generateQR(qrData,160);
+  document.getElementById('danger-zone').style.display=u.role==='admin'?'none':'block';
+}
+function saveProfil(){
+  if(!Validator.validate('form-profil',{nama:{required:true,label:'Nama'},email:{email:true,label:'Email'},nomorHP:{phone:true,label:'No. HP'}}))return;
+  const data={nama:document.getElementById('f-nama').value.trim(),email:document.getElementById('f-email').value.trim(),nomorHP:document.getElementById('f-hp').value.trim(),foto:document.getElementById('foto-data').value};
+  Storage.updateUser(currentUser.id,data);
+  Storage.setSession({...Storage.getSession(),...data});
+  Storage.addRiwayat('Edit profil sendiri',currentUser.nama);
+  Toast.success('Profil diperbarui');
+  loadProfil();
+  renderSidebar({...currentUser,...data},'profil');
+}
+function gantiPassword(){
+  const old=document.getElementById('old-pass').value;
+  const np=document.getElementById('new-pass').value;
+  const cp=document.getElementById('confirm-pass').value;
+  const user=Storage.getUserById(currentUser.id);
+  if(Utils.decodePass(user.password)!==old){Toast.error('Password lama salah');return;}
+  if(np.length<6){Toast.error('Min. 6 karakter');return;}
+  if(np!==cp){Toast.error('Konfirmasi tidak cocok');return;}
+  Storage.updateUser(currentUser.id,{password:Utils.encodePass(np)});
+  Storage.addRiwayat('Ganti password sendiri',currentUser.nama);
+  Toast.success('Password diubah');
+  document.getElementById('old-pass').value='';
+  document.getElementById('new-pass').value='';
+  document.getElementById('confirm-pass').value='';
+}
+function hapusAkun(){showConfirm({title:'Hapus Akun',message:'Yakin hapus akun? Data titipan Anda ikut terhapus.',confirmText:'Ya, Hapus Akun',onConfirm(){const titipan=Storage.getTitipan().filter(t=>t.userId!==currentUser.id);Storage.saveTitipan(titipan);Storage.deleteUser(currentUser.id);Storage.clearSession();Toast.success('Akun dihapus');setTimeout(()=>window.location.href='login.html',800);}});}
+async function handleFoto(input){const file=input.files[0];if(!file)return;if(file.size>1024*1024){Toast.error('Max 1MB');return;}const b64=await Utils.fileToBase64(file);document.getElementById('foto-data').value=b64;document.getElementById('foto-preview').innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('avatar-display').innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover">`;}
+function removeFoto(){document.getElementById('foto-data').value='';const ini=document.getElementById('f-nama').value.charAt(0).toUpperCase()||'?';document.getElementById('foto-preview').textContent=ini;document.getElementById('avatar-display').textContent=ini;}
+const mq=window.matchMedia('(max-width:768px)');
+function hr(e){document.getElementById('profil-grid').style.gridTemplateColumns=e.matches?'1fr':'1fr 1.6fr';}
+mq.addEventListener('change',hr);hr(mq);
+</script>
+</body></html>

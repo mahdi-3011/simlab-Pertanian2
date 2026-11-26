@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Data User – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>👥 Data User</h2><div class="breadcrumb">Admin › Data User</div></div>
+        <button class="btn btn-primary" onclick="openAddModal()">➕ Tambah User</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Daftar User</span><span id="user-count" style="font-size:13px;color:var(--text-muted)"></span></div>
+        <div class="table-controls">
+          <div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari nama, username, email..." oninput="renderTable()"></div>
+          <select class="filter-select" id="filter-role" onchange="renderTable()"><option value="">Semua Role</option><option>admin</option><option>tamu</option></select>
+          <select class="filter-select" id="filter-status" onchange="renderTable()"><option value="">Semua Status</option><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th onclick="sortBy('nama')">Nama <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('username')">Username <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('role')">Role <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('email')">Email <span class="sort-icon">↕</span></th>
+            <th>No. HP</th><th>Status</th>
+            <th onclick="sortBy('createdAt')">Tgl Daftar <span class="sort-icon">↕</span></th>
+            <th>Aksi</th>
+          </tr></thead>
+          <tbody id="user-tbody"></tbody>
+        </table></div>
+        <div id="pagination"></div>
+      </div>
+      <button class="fab" onclick="openAddModal()">➕</button>
+    </main>
+  </div>
+</div>
+
+<!-- Modal User -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-title">Tambah User</h3><button class="modal-close" onclick="Modal.close('modal-user')">×</button></div>
+    <div class="modal-body">
+      <form id="form-user" onsubmit="return false">
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label>Foto Profil</label>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div id="foto-preview" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#0a0a0a;overflow:hidden;flex-shrink:0">A</div>
+              <div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('foto-input').click()">📷 Upload Foto</button>
+                <div class="form-hint">JPG/PNG, max 1MB</div>
+              </div>
+            </div>
+            <input type="file" id="foto-input" accept="image/*" style="display:none" onchange="handleFotoUser(this)">
+            <input type="hidden" name="foto" id="foto-user-data">
+          </div>
+          <div class="form-group"><label class="label-req">Nama Lengkap</label><input name="nama" placeholder="Nama lengkap" required></div>
+          <div class="form-group"><label class="label-req">Username</label><input name="username" placeholder="username unik" required></div>
+          <div class="form-group">
+            <label id="pass-label" class="label-req">Password</label>
+            <div class="input-group"><input name="password" type="password" placeholder="Min. 6 karakter" id="pass-input"><span class="input-group-icon" onclick="toggleP('pass-input')">👁</span></div>
+          </div>
+          <div class="form-group" id="confirm-pass-group">
+            <label class="label-req">Konfirmasi Password</label>
+            <div class="input-group"><input name="confirmPassword" type="password" placeholder="Ulangi password" id="confirm-pass-input"><span class="input-group-icon" onclick="toggleP('confirm-pass-input')">👁</span></div>
+          </div>
+          <div class="form-group"><label>Role</label><select name="role"><option value="tamu">Tamu</option><option value="admin">Admin</option></select></div>
+          <div class="form-group"><label>Nomor HP</label><input name="nomorHP" placeholder="08xxx" type="tel"></div>
+          <div class="form-group span-2"><label>Email</label><input name="email" type="email" placeholder="email@domain.com"></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-user')">Batal</button><button class="btn btn-primary" onclick="saveUser()">💾 Simpan</button></div>
+  </div>
+</div>
+
+<!-- Modal Reset Password -->
+<div class="modal-overlay" id="modal-reset-pass">
+  <div class="modal modal-sm">
+    <div class="modal-header"><h3>🔑 Reset Password</h3><button class="modal-close" onclick="Modal.close('modal-reset-pass')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="reset-user-id">
+      <div id="reset-user-info" style="margin-bottom:16px;font-size:13px;color:var(--text-muted);background:var(--card-2);padding:10px;border-radius:8px;border:1px solid var(--border)"></div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="label-req">Password Baru</label>
+        <div class="input-group"><input type="password" id="new-pass" placeholder="Min. 6 karakter"><span class="input-group-icon" onclick="toggleP('new-pass')">👁</span></div>
+      </div>
+      <div class="form-group">
+        <label class="label-req">Konfirmasi</label>
+        <div class="input-group"><input type="password" id="confirm-pass" placeholder="Ulangi password"><span class="input-group-icon" onclick="toggleP('confirm-pass')">👁</span></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-reset-pass')">Batal</button><button class="btn btn-primary" onclick="applyResetPassword()">🔑 Reset</button></div>
+  </div>
+</div>
+
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('users','👥 Data User','admin');
+let editingId=null,currentPage=1,sortKey='createdAt',sortDir='desc';
+function toggleP(id){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';}
+function getFiltered(){
+  let data=Storage.getUsers();
+  const q=document.getElementById('search').value.toLowerCase();
+  const role=document.getElementById('filter-role').value;
+  const status=document.getElementById('filter-status').value;
+  if(q)data=data.filter(u=>(u.nama||'').toLowerCase().includes(q)||(u.username||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q));
+  if(role)data=data.filter(u=>u.role===role);
+  if(status==='aktif')data=data.filter(u=>u.active);
+  else if(status==='nonaktif')data=data.filter(u=>!u.active);
+  return Utils.sortArr(data,sortKey,sortDir);
+}
+function renderTable(){
+  const filtered=getFiltered();
+  const paged=Utils.paginate(filtered,currentPage,10);
+  document.getElementById('user-count').textContent=`${filtered.length} user`;
+  const tbody=document.getElementById('user-tbody');
+  if(!paged.data.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="8"><div class="empty-state"><div class="empty-icon">👥</div><h3>Tidak Ada User</h3></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(u=>`<tr>
+    <td><div style="display:flex;align-items:center;gap:10px">
+      <div class="user-avatar" style="width:34px;height:34px;font-size:14px">${u.foto?`<img src="${u.foto}">`:u.nama.charAt(0).toUpperCase()}</div>
+      <b>${u.nama}</b></div></td>
+    <td><code style="background:var(--card-2);padding:2px 7px;border-radius:5px;font-size:12px;border:1px solid var(--border)">@${u.username}</code></td>
+    <td>${Utils.statusBadge(u.role)}</td>
+    <td style="font-size:13px">${u.email||'-'}</td>
+    <td style="font-size:13px">${u.nomorHP||'-'}</td>
+    <td>${Utils.statusBadge(u.active?'Aktif':'Nonaktif')}</td>
+    <td style="font-size:12px">${Utils.formatDate(u.createdAt)}</td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm btn-icon-only" onclick="editUser('${u.id}')" title="Edit">✏️</button>
+      <button class="btn btn-sm btn-icon-only" style="background:rgba(188,205,196,.15);color:var(--primary);border:1px solid rgba(188,205,196,.3)" onclick="resetPass('${u.id}')" title="Reset Password">🔑</button>
+      <button class="btn btn-${u.active?'danger':'success'} btn-sm btn-icon-only" onclick="toggleActive('${u.id}')" title="${u.active?'Nonaktifkan':'Aktifkan'}">${u.active?'🚫':'✅'}</button>
+      <button class="btn btn-danger btn-sm btn-icon-only" onclick="deleteUser('${u.id}')" title="Hapus">🗑️</button>
+    </div></td>
+  </tr>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+}
+function sortBy(key){if(sortKey===key)sortDir=sortDir==='asc'?'desc':'asc';else{sortKey=key;sortDir='asc';}renderTable();}
+function openAddModal(){editingId=null;document.getElementById('modal-title').textContent='Tambah User Baru';document.getElementById('form-user').reset();document.getElementById('foto-user-data').value='';document.getElementById('foto-preview').innerHTML='A';document.getElementById('pass-label').textContent='Password *';document.getElementById('confirm-pass-group').style.display='';Modal.open('modal-user');}
+function editUser(id){editingId=id;const u=Storage.getUserById(id);if(!u)return;document.getElementById('modal-title').textContent='Edit User';const form=document.getElementById('form-user');Object.keys(u).forEach(k=>{const el=form.querySelector(`[name="${k}"]`);if(el&&k!=='password')el.value=u[k];});document.getElementById('foto-user-data').value=u.foto||'';if(u.foto)document.getElementById('foto-preview').innerHTML=`<img src="${u.foto}" style="width:100%;height:100%;object-fit:cover">`;else document.getElementById('foto-preview').innerHTML=u.nama.charAt(0).toUpperCase();document.getElementById('pass-label').textContent='Password (kosongkan jika tidak diubah)';document.getElementById('confirm-pass-group').style.display='none';Modal.open('modal-user');}
+function saveUser(){
+  const rules={nama:{required:true,label:'Nama'},username:{required:true,label:'Username'},email:{email:true,label:'Email'},nomorHP:{phone:true,label:'No. HP'}};
+  if(!editingId){rules.password={required:true,label:'Password',min:6};rules.confirmPassword={required:true,label:'Konfirmasi',match:'password'};}
+  if(!Validator.validate('form-user',rules))return;
+  const form=document.getElementById('form-user');const data={};
+  form.querySelectorAll('input,select').forEach(el=>{if(el.name&&el.name!=='confirmPassword')data[el.name]=el.value;});
+  data.foto=document.getElementById('foto-user-data').value;
+  const existing=Storage.getUserByUsername(data.username);
+  if(existing&&existing.id!==editingId){Toast.error('Username sudah digunakan');return;}
+  if(editingId){if(data.password)data.password=Utils.encodePass(data.password);else delete data.password;Storage.updateUser(editingId,data);Storage.addRiwayat(`Edit user: ${data.nama}`,currentUser.nama);Toast.success('User diperbarui');}
+  else{data.password=Utils.encodePass(data.password);Storage.addUser(data);Storage.addRiwayat(`Tambah user: ${data.nama}`,currentUser.nama);Toast.success('User ditambahkan');}
+  Modal.close('modal-user');renderTable();
+}
+function deleteUser(id){if(id===currentUser.id){Toast.error('Tidak bisa menghapus akun sendiri!');return;}const u=Storage.getUserById(id);showConfirm({title:'Hapus User',message:`Hapus user <b>${u.nama}</b>?`,onConfirm(){Storage.deleteUser(id);Storage.addRiwayat(`Hapus user: ${u.nama}`,currentUser.nama);Toast.success('User dihapus');renderTable();}});}
+function toggleActive(id){if(id===currentUser.id){Toast.error('Tidak bisa menonaktifkan akun sendiri!');return;}const u=Storage.getUserById(id);Storage.updateUser(id,{active:!u.active});Storage.addRiwayat(`${u.active?'Nonaktifkan':'Aktifkan'} user: ${u.nama}`,currentUser.nama);Toast.success(`User ${u.active?'dinonaktifkan':'diaktifkan'}`);renderTable();}
+function resetPass(id){const u=Storage.getUserById(id);document.getElementById('reset-user-id').value=id;document.getElementById('reset-user-info').textContent=`Reset password untuk: ${u.nama} (@${u.username})`;document.getElementById('new-pass').value='';document.getElementById('confirm-pass').value='';Modal.open('modal-reset-pass');}
+function applyResetPassword(){const id=document.getElementById('reset-user-id').value;const np=document.getElementById('new-pass').value;const cp=document.getElementById('confirm-pass').value;if(np.length<6){Toast.error('Min. 6 karakter');return;}if(np!==cp){Toast.error('Password tidak cocok');return;}Storage.updateUser(id,{password:Utils.encodePass(np)});Storage.addRiwayat(`Reset password: ${Storage.getUserById(id).nama}`,currentUser.nama);Toast.success('Password direset');Modal.close('modal-reset-pass');}
+async function handleFotoUser(input){const file=input.files[0];if(!file)return;if(file.size>1024*1024){Toast.error('Max 1MB');return;}const b64=await Utils.fileToBase64(file);document.getElementById('foto-user-data').value=b64;document.getElementById('foto-preview').innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover">`;}
+renderTable();
+</script>
+</body></html>

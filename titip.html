@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Titip Barang – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>📤 Titip Barang</h2><div class="breadcrumb">Menu Saya › Titip Barang</div></div>
+        <button class="btn btn-primary" onclick="openAddModal()">➕ Titipkan Barang</button>
+      </div>
+      <div class="stats-grid" id="titip-stats"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Daftar Titipan Saya</span>
+          <div class="search-wrap" style="max-width:240px"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari barang..." oninput="renderTable()"></div>
+        </div>
+        <div class="table-controls">
+          <select class="filter-select" id="filter-status" onchange="renderTable()"><option value="">Semua Status</option><option>Pending</option><option>Disimpan</option><option>Diambil</option><option>Terlambat</option></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Nama Barang</th><th>Kategori</th><th>Jml</th><th>Kondisi</th><th>Tgl Titip</th><th>Est. Ambil</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="titip-tbody"></tbody>
+        </table></div>
+        <div id="pagination"></div>
+      </div>
+      <button class="fab" onclick="openAddModal()">➕</button>
+    </main>
+  </div>
+</div>
+
+<!-- Modal Add/Edit -->
+<div class="modal-overlay" id="modal-titip">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3 id="modal-title">Titipkan Barang</h3><button class="modal-close" onclick="Modal.close('modal-titip')">×</button></div>
+    <div class="modal-body">
+      <div style="background:rgba(105,131,176,.1);border:1px solid rgba(105,131,176,.25);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--silver);margin-bottom:16px">ℹ️ Titipan akan berstatus <b>Pending</b> hingga dikonfirmasi admin.</div>
+      <form id="form-titip" onsubmit="return false"><div class="form-grid">
+        <div class="form-group"><label class="label-req">Nama Barang</label><input name="namaBarang" required></div>
+        <div class="form-group"><label>Kategori</label><select name="kategori"><option value="">Pilih</option><option>Alat Tangan</option><option>Alat Ukur</option><option>Komponen Mesin</option><option>Komponen Kelistrikan</option><option>Bahan Habis Pakai</option><option>Alat Keselamatan</option><option>Lainnya</option></select></div>
+        <div class="form-group"><label class="label-req">Jumlah</label><input name="jumlah" type="number" min="1" required></div>
+        <div class="form-group"><label>Kondisi</label><select name="kondisi"><option value="">Pilih</option><option>Baik</option><option>Rusak Ringan</option><option>Rusak Berat</option><option>Perlu Servis</option></select></div>
+        <div class="form-group"><label>Estimasi Ambil</label><input name="estimasiAmbil" type="date"></div>
+        <div class="form-group"></div>
+        <div class="form-group span-2"><label>Deskripsi / Catatan</label><textarea name="deskripsi" rows="3" placeholder="Kondisi detail, catatan khusus..."></textarea></div>
+        <div class="form-group span-2">
+          <label>Foto Barang</label>
+          <div class="img-upload-box" id="foto-upload-box" onclick="document.getElementById('foto-titip-input').click()">
+            <div class="img-upload-icon">📷</div><div>Klik untuk upload foto</div><div style="font-size:11px;margin-top:4px">JPG, PNG, max 2MB</div>
+          </div>
+          <input type="file" id="foto-titip-input" accept="image/*" style="display:none" onchange="handleFoto(this)">
+          <input type="hidden" name="foto" id="foto-data">
+        </div>
+      </div></form>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-titip')">Batal</button><button class="btn btn-primary" onclick="saveTitip()">📤 Titipkan Sekarang</button></div>
+  </div>
+</div>
+
+<!-- Modal Detail -->
+<div class="modal-overlay" id="modal-detail"><div class="modal modal-sm"><div class="modal-header"><h3>Detail Titipan</h3><button class="modal-close" onclick="Modal.close('modal-detail')">×</button></div><div class="modal-body" id="detail-body"></div></div></div>
+
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('titip','📤 Titip Barang');
+let editingId=null,currentPage=1;
+function getFiltered(){
+  let data=Storage.getTitipanByUser(currentUser.id);
+  const q=document.getElementById('search').value.toLowerCase();
+  const st=document.getElementById('filter-status').value;
+  if(q)data=data.filter(t=>(t.namaBarang||'').toLowerCase().includes(q));
+  if(st)data=data.filter(t=>t.status===st);
+  return data.sort((a,b)=>new Date(b.tanggalTitip)-new Date(a.tanggalTitip));
+}
+function renderStats(){
+  const data=Storage.getTitipanByUser(currentUser.id);
+  document.getElementById('titip-stats').innerHTML=[['📦','Total',data.length,'var(--silver-2)'],['⏳','Pending',data.filter(t=>t.status==='Pending').length,'var(--yellow)'],['✅','Disimpan',data.filter(t=>t.status==='Disimpan').length,'var(--green)'],['📤','Diambil',data.filter(t=>t.status==='Diambil').length,'var(--secondary)']].map(([icon,label,value,color])=>`<div class="stat-card" style="--stat-accent:${color}"><div class="stat-icon">${icon}</div><div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div></div>`).join('');
+}
+function renderTable(){
+  renderStats();
+  const filtered=getFiltered();
+  const paged=Utils.paginate(filtered,currentPage,10);
+  const tbody=document.getElementById('titip-tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="empty-icon">📤</div><h3>Belum Ada Titipan</h3><p>Klik "Titipkan Barang" untuk memulai</p></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(t=>{
+    const canEdit=t.status==='Pending';
+    return `<tr>
+      <td><code style="font-size:10px">${t.id}</code></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${t.foto?`<img src="${t.foto}" class="img-thumb">`:'<div class="no-img">📷</div>'}<b>${Utils.truncate(t.namaBarang,18)}</b></div></td>
+      <td>${t.kategori||'-'}</td><td>${t.jumlah}</td>
+      <td>${Utils.kondisiBadge(t.kondisi||'Baik')}</td>
+      <td style="font-size:12px">${Utils.formatDate(t.tanggalTitip)}</td>
+      <td style="font-size:12px">${Utils.formatDate(t.estimasiAmbil)}</td>
+      <td>${Utils.statusBadge(t.status)}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-info btn-sm btn-icon-only" onclick="viewDetail('${t.id}')" title="Detail">👁</button>
+        ${canEdit?`<button class="btn btn-primary btn-sm btn-icon-only" onclick="editTitip('${t.id}')" title="Edit">✏️</button>`:'' }
+        ${canEdit?`<button class="btn btn-danger btn-sm btn-icon-only" onclick="batalTitip('${t.id}')" title="Batalkan">🗑️</button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+}
+function openAddModal(){editingId=null;document.getElementById('modal-title').textContent='Titipkan Barang';document.getElementById('form-titip').reset();document.getElementById('foto-data').value='';resetFotoBox();AutoSave.restore('form-titip');Modal.open('modal-titip');}
+function editTitip(id){const t=Storage.getTitipan().find(x=>x.id===id);if(!t||t.status!=='Pending'){Toast.warning('Hanya Pending yang bisa diedit');return;}editingId=id;document.getElementById('modal-title').textContent='Edit Titipan';const form=document.getElementById('form-titip');Object.keys(t).forEach(k=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.value=k==='estimasiAmbil'?(t[k]||'').slice(0,10):t[k];});if(t.foto){document.getElementById('foto-upload-box').innerHTML=`<img src="${t.foto}" style="max-height:100px;border-radius:8px">`;document.getElementById('foto-data').value=t.foto;}Modal.open('modal-titip');}
+function saveTitip(){
+  if(!Validator.validate('form-titip',{namaBarang:{required:true,label:'Nama Barang'},jumlah:{required:true,label:'Jumlah'}}))return;
+  const form=document.getElementById('form-titip');const data={};
+  form.querySelectorAll('input,select,textarea').forEach(el=>{if(el.name)data[el.name]=el.value;});
+  data.foto=document.getElementById('foto-data').value;data.userId=currentUser.id;data.namaUser=currentUser.nama;
+  if(editingId){Storage.updateTitipan(editingId,data);Storage.addRiwayat(`Edit titipan: ${data.namaBarang}`,currentUser.nama);Toast.success('Titipan diperbarui');}
+  else{
+    const added=Storage.addTitipan(data);
+    Storage.addPenyimpanan({namaUser:currentUser.nama,namaBarang:data.namaBarang,kategori:data.kategori,jumlah:data.jumlah,estimasiAmbil:data.estimasiAmbil,catatanAdmin:'',status:'Pending',titipanId:added.id});
+    Storage.addRiwayat(`Titipkan barang: ${data.namaBarang}`,currentUser.nama);
+    Storage.addNotifikasi(`Titipan baru: ${data.namaBarang} dari ${currentUser.nama}`,'all','info');
+    Toast.success('Barang dititipkan! Menunggu konfirmasi admin.');
+  }
+  AutoSave.clear('form-titip');Modal.close('modal-titip');renderTable();
+}
+function batalTitip(id){const t=Storage.getTitipan().find(x=>x.id===id);if(!t)return;showConfirm({title:'Batalkan Titipan',message:`Batalkan titipan <b>${t.namaBarang}</b>?`,confirmText:'Ya, Batalkan',onConfirm(){UndoStack.push(`"${t.namaBarang}" dibatalkan`,()=>{Storage.addTitipan({...t,id:undefined});renderTable();Toast.info('Dipulihkan');});Storage.deleteTitipan(id);Storage.addRiwayat(`Batalkan titipan: ${t.namaBarang}`,currentUser.nama);Toast.success('Titipan dibatalkan');renderTable();}});}
+function viewDetail(id){const t=Storage.getTitipan().find(x=>x.id===id);if(!t)return;document.getElementById('detail-body').innerHTML=`${t.foto?`<img src="${t.foto}" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-bottom:14px">`:''}
+<table style="width:100%;font-size:13px">
+<tr><td style="color:var(--text-muted);padding:5px 0;width:40%">ID</td><td><code style="font-size:10px">${t.id}</code></td></tr>
+<tr><td style="color:var(--text-muted)">Barang</td><td><b>${t.namaBarang}</b></td></tr>
+<tr><td style="color:var(--text-muted)">Kategori</td><td>${t.kategori||'-'}</td></tr>
+<tr><td style="color:var(--text-muted)">Jumlah</td><td>${t.jumlah}</td></tr>
+<tr><td style="color:var(--text-muted)">Kondisi</td><td>${Utils.kondisiBadge(t.kondisi||'Baik')}</td></tr>
+<tr><td style="color:var(--text-muted)">Deskripsi</td><td>${t.deskripsi||'-'}</td></tr>
+<tr><td style="color:var(--text-muted)">Tgl Titip</td><td>${Utils.formatDate(t.tanggalTitip)}</td></tr>
+<tr><td style="color:var(--text-muted)">Est. Ambil</td><td>${Utils.formatDate(t.estimasiAmbil)}</td></tr>
+<tr><td style="color:var(--text-muted)">Status</td><td>${Utils.statusBadge(t.status)}</td></tr>
+</table>
+${t.status==='Pending'?'<div style="margin-top:14px;background:rgba(105,131,176,.1);border:1px solid rgba(105,131,176,.25);border-radius:8px;padding:10px;font-size:12px;color:var(--silver)">⏳ Menunggu konfirmasi admin</div>':''}`;
+Modal.open('modal-detail');}
+async function handleFoto(input){const file=input.files[0];if(!file)return;if(file.size>2*1024*1024){Toast.error('Max 2MB');return;}const b64=await Utils.fileToBase64(file);document.getElementById('foto-data').value=b64;document.getElementById('foto-upload-box').innerHTML=`<img src="${b64}" style="max-height:100px;border-radius:8px"><div style="font-size:11px;margin-top:6px;color:var(--text-muted)">Klik untuk ganti</div>`;}
+function resetFotoBox(){document.getElementById('foto-upload-box').innerHTML=`<div class="img-upload-icon">📷</div><div>Klik untuk upload foto</div><div style="font-size:11px;margin-top:4px">JPG, PNG, max 2MB</div>`;}
+document.getElementById('form-titip').addEventListener('input',()=>AutoSave.save('form-titip'));
+renderTable();
+</script>
+</body></html>

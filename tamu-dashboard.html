@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard Tamu – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>Dashboard Saya</h2><div class="breadcrumb" id="greeting"></div></div>
+        <button class="btn btn-primary" onclick="nav('titip.html')">📤 Titipkan Barang</button>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div id="alert-banner"></div>
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px" id="dash-grid">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📦 Titipan Terbaru</span><button class="btn btn-sm btn-secondary" onclick="nav('titip.html')">Lihat Semua</button></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Barang</th><th>Status</th><th>Tgl Titip</th><th>Est. Ambil</th></tr></thead>
+            <tbody id="recent-titip"></tbody>
+          </table></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px">⚡ Aksi Cepat</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-primary" onclick="nav('titip.html')" style="justify-content:flex-start">📤 Titipkan Barang Baru</button>
+              <button class="btn btn-secondary" onclick="nav('profil.html')" style="justify-content:flex-start">👤 Edit Profil</button>
+              <button class="btn btn-secondary" onclick="nav('notifikasi.html')" style="justify-content:flex-start">🔔 Notifikasi</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px">📊 Ringkasan Status</div>
+            <div id="status-chart"></div>
+          </div>
+          <div class="card" style="background:linear-gradient(135deg,rgba(188,205,196,.08),rgba(105,131,176,.08));border-color:rgba(105,131,176,.25)">
+            <div style="font-size:28px;margin-bottom:8px">🔧</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px">Lab Bengkel Otomotif</div>
+            <div style="font-size:12px;color:var(--text-muted)">Sistem penyimpanan sementara peralatan dan komponen otomotif mahasiswa</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('dashboard','Dashboard Tamu');
+if(currentUser)loadDashboard();
+function loadDashboard(){
+  const h=new Date().getHours();
+  const greet=h<12?'Selamat Pagi':h<15?'Selamat Siang':h<18?'Selamat Sore':'Selamat Malam';
+  document.getElementById('greeting').textContent=`${greet}, ${currentUser.nama}! 👋`;
+  const titipan=Storage.getTitipanByUser(currentUser.id);
+  const unread=Storage.getNotifikasi(currentUser.id).filter(n=>!n.dibaca);
+  document.getElementById('stats-grid').innerHTML=[
+    ['📦','Total Titipan',titipan.length,'var(--accent)'],
+    ['⏳','Pending',titipan.filter(t=>t.status==='Pending').length,'var(--yellow)'],
+    ['✅','Disimpan',titipan.filter(t=>t.status==='Disimpan').length,'var(--green)'],
+    ['🔔','Notifikasi',unread.length,'var(--secondary)'],
+  ].map(([icon,label,value,color])=>`<div class="stat-card" style="--stat-accent:${color}"><div class="stat-icon">${icon}</div><div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div></div>`).join('');
+  const terlambat=titipan.filter(t=>t.status==='Terlambat');
+  const alertEl=document.getElementById('alert-banner');
+  alertEl.innerHTML=terlambat.length?`<div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px"><span style="font-size:24px">🚨</span><div><div style="font-weight:600;color:var(--red)">${terlambat.length} titipan melewati estimasi pengambilan.</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px">Segera hubungi admin untuk pengambilan barang Anda.</div></div></div>`:'';
+  const recent=[...titipan].sort((a,b)=>new Date(b.tanggalTitip)-new Date(a.tanggalTitip)).slice(0,5);
+  document.getElementById('recent-titip').innerHTML=recent.length?recent.map(t=>`<tr>
+    <td><div style="display:flex;align-items:center;gap:8px">${t.foto?`<img src="${t.foto}" class="img-thumb">`:'<div class="no-img">📷</div>'}<span style="font-size:13px">${Utils.truncate(t.namaBarang,18)}</span></div></td>
+    <td>${Utils.statusBadge(t.status)}</td>
+    <td style="font-size:12px">${Utils.formatDate(t.tanggalTitip)}</td>
+    <td style="font-size:12px">${Utils.formatDate(t.estimasiAmbil)}</td>
+  </tr>`).join(''):'<tr class="empty-row"><td colspan="4">Belum ada titipan</td></tr>';
+  const sts={Pending:0,Disimpan:0,Diambil:0,Terlambat:0};
+  const stC={Pending:'var(--yellow)',Disimpan:'var(--green)',Diambil:'var(--secondary)',Terlambat:'var(--red)'};
+  titipan.forEach(t=>{if(sts[t.status]!==undefined)sts[t.status]++;});
+  const mx=Math.max(...Object.values(sts),1);
+  document.getElementById('status-chart').innerHTML=Object.entries(sts).map(([k,v])=>`<div class="chart-bar-item" style="margin-bottom:8px"><div class="chart-bar-label">${k}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(v/mx*100).toFixed(0)}%;background:${stC[k]}"></div></div><div class="chart-bar-val">${v}</div></div>`).join('');
+}
+const mq=window.matchMedia('(max-width:768px)');
+function hr(e){const g=document.getElementById('dash-grid');if(g)g.style.gridTemplateColumns=e.matches?'1fr':'1.5fr 1fr';}
+mq.addEventListener('change',hr);hr(mq);
+</script>
+</body></html>

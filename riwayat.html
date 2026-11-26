@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Riwayat – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>📋 Riwayat Aktivitas</h2><div class="breadcrumb">Admin › Riwayat</div></div>
+        <div class="action-row">
+          <button class="btn btn-secondary btn-sm" onclick="doExportCSV()">📤 Export CSV</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ Kosongkan Log</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Log Aktivitas Sistem</span><span id="log-count" style="font-size:13px;color:var(--text-muted)"></span></div>
+        <div class="table-controls">
+          <div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari aktivitas, user..." oninput="applyFilters()"></div>
+          <input type="date" class="filter-select" id="filter-tgl" onchange="applyFilters()">
+          <select class="filter-select" id="per-page" onchange="applyFilters()"><option value="20">20/hal</option><option value="50">50/hal</option><option value="100">100/hal</option></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID Log</th><th onclick="sortBy('aktivitas')">Aktivitas <span class="sort-icon">↕</span></th><th onclick="sortBy('user')">User <span class="sort-icon">↕</span></th><th onclick="sortBy('tanggal')">Tanggal <span class="sort-icon">↕</span></th><th>Waktu</th><th>Aksi</th></tr></thead>
+          <tbody id="log-tbody"></tbody>
+        </table></div>
+        <div id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('riwayat','📋 Riwayat Aktivitas','admin');
+let currentPage=1,sortKey='timestamp',sortDir='desc';
+function getFiltered(){
+  let data=Storage.getRiwayat();
+  const q=document.getElementById('search').value.toLowerCase();
+  const tgl=document.getElementById('filter-tgl').value;
+  if(q)data=data.filter(r=>(r.aktivitas||'').toLowerCase().includes(q)||(r.user||'').toLowerCase().includes(q));
+  if(tgl)data=data.filter(r=>r.timestamp&&r.timestamp.startsWith(tgl));
+  return Utils.sortArr(data,sortKey,sortDir);
+}
+function applyFilters(){currentPage=1;renderTable();}
+function renderTable(){
+  const filtered=getFiltered();
+  const perPage=parseInt(document.getElementById('per-page').value)||20;
+  const paged=Utils.paginate(filtered,currentPage,perPage);
+  document.getElementById('log-count').textContent=`${filtered.length} log`;
+  const tbody=document.getElementById('log-tbody');
+  if(!paged.data.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><h3>Tidak Ada Log</h3><p>Belum ada aktivitas tercatat</p></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(r=>`<tr>
+    <td><code style="font-size:10px;background:var(--card-2);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">${r.id}</code></td>
+    <td>${r.aktivitas}</td>
+    <td><b>${r.user||'-'}</b></td>
+    <td style="font-size:12px">${r.tanggal||'-'}</td>
+    <td style="font-size:12px">${r.waktu||'-'}</td>
+    <td><button class="btn btn-danger btn-sm btn-icon-only" onclick="deleteLog('${r.id}')" title="Hapus">🗑️</button></td>
+  </tr>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+}
+function sortBy(key){if(sortKey===key)sortDir=sortDir==='asc'?'desc':'asc';else{sortKey=key;sortDir='asc';}renderTable();}
+function deleteLog(id){showConfirm({title:'Hapus Log',message:'Hapus log ini?',onConfirm(){Storage.deleteRiwayat(id);Toast.success('Log dihapus');renderTable();}});}
+function clearAll(){showConfirm({title:'Kosongkan Log',message:'Hapus SEMUA log aktivitas? Tidak dapat dibatalkan.',confirmText:'Ya, Kosongkan',onConfirm(){Storage.clearRiwayat();Toast.success('Semua log dihapus');renderTable();}});}
+function doExportCSV(){Utils.exportCSV(getFiltered().map(r=>({ID:r.id,Aktivitas:r.aktivitas,User:r.user,Tanggal:r.tanggal,Waktu:r.waktu})),'riwayat-aktivitas.csv');Toast.success('Diekspor');}
+renderTable();
+</script>
+</body></html>
