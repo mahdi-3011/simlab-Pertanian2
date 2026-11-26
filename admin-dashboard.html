@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard Admin – AutoLab</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.quick-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.quick-link{background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 14px;text-align:center;cursor:pointer;transition:var(--transition)}
+.quick-link:hover{border-color:var(--accent);background:rgba(105,131,176,.1);transform:translateY(-2px)}
+.quick-link .ql-icon{font-size:30px;margin-bottom:8px}
+.quick-link .ql-label{font-size:13px;font-weight:600;color:var(--text)}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>Dashboard Admin</h2><div class="breadcrumb" id="greeting"></div></div>
+        <div class="action-row">
+          <button class="btn btn-secondary" onclick="nav('barang.html')">📦 Data Barang</button>
+          <button class="btn btn-primary" onclick="nav('laporan.html')">📊 Buat Laporan</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" id="mid-grid">
+        <div class="card"><div class="card-header"><span class="card-title">📦 Barang per Kategori</span></div><div class="chart-bar-wrap" id="chart-kat"></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">🗄️ Status Penyimpanan</span></div><div class="chart-bar-wrap" id="chart-status"></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px" id="bot-grid">
+        <div class="card">
+          <div class="card-header"><span class="card-title">🕒 Penyimpanan Terbaru</span><button class="btn btn-sm btn-secondary" onclick="nav('penyimpanan.html')">Lihat Semua</button></div>
+          <div class="table-wrap"><table><thead><tr><th>User</th><th>Barang</th><th>Status</th><th>Tgl</th></tr></thead><tbody id="recent-psp"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚡ Aktivitas</span><button class="btn btn-sm btn-secondary" onclick="nav('riwayat.html')">Semua</button></div>
+          <div class="activity-feed" id="activity-feed"></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">⚡ Akses Cepat</span></div>
+        <div class="quick-links">
+          <div class="quick-link" onclick="nav('barang.html')"><div class="ql-icon">📦</div><div class="ql-label">Barang</div></div>
+          <div class="quick-link" onclick="nav('penyimpanan.html')"><div class="ql-icon">🗄️</div><div class="ql-label">Penyimpanan</div></div>
+          <div class="quick-link" onclick="nav('users.html')"><div class="ql-icon">👥</div><div class="ql-label">User</div></div>
+          <div class="quick-link" onclick="nav('laporan.html')"><div class="ql-icon">📊</div><div class="ql-label">Laporan</div></div>
+          <div class="quick-link" onclick="nav('riwayat.html')"><div class="ql-icon">📋</div><div class="ql-label">Riwayat</div></div>
+          <div class="quick-link" onclick="nav('profil.html')"><div class="ql-icon">👤</div><div class="ql-label">Profil</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('dashboard','Dashboard Admin','admin');
+if(currentUser)loadDash();
+function loadDash(){
+  const h=new Date().getHours();
+  const greet=h<12?'Selamat Pagi':h<15?'Selamat Siang':h<18?'Selamat Sore':'Selamat Malam';
+  document.getElementById('greeting').textContent=greet+', '+currentUser.nama+'! 👋';
+  const barang=Storage.getBarang(),psp=Storage.getPenyimpanan(),users=Storage.getUsers(),log=Storage.getRiwayat();
+  const colors=['var(--accent)','var(--secondary)','var(--green)','var(--red)','var(--primary)','var(--text-muted)'];
+  const stats=[
+    {label:'Total Barang',value:barang.length,icon:'📦'},
+    {label:'Penyimpanan',value:psp.length,icon:'🗄️'},
+    {label:'Pending',value:psp.filter(p=>p.status==='Pending').length,icon:'⏳'},
+    {label:'Terlambat',value:psp.filter(p=>p.status==='Terlambat').length,icon:'🚨'},
+    {label:'Total User',value:users.length,icon:'👥'},
+    {label:'Log',value:log.length,icon:'📋'},
+  ];
+  document.getElementById('stats-grid').innerHTML=stats.map((s,i)=>`<div class="stat-card" style="--stat-accent:${colors[i]}"><div class="stat-icon">${s.icon}</div><div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div></div>`).join('');
+  const cats={};barang.forEach(b=>{cats[b.kategori]=(cats[b.kategori]||0)+1;});
+  const maxC=Math.max(...Object.values(cats),1);
+  document.getElementById('chart-kat').innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="chart-bar-item"><div class="chart-bar-label">${Utils.truncate(k,12)}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(v/maxC*100).toFixed(0)}%"></div></div><div class="chart-bar-val">${v}</div></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px">Belum ada data</div>';
+  const sts={Disimpan:0,Pending:0,Diambil:0,Terlambat:0};
+  const stColors={Disimpan:'var(--green)',Pending:'var(--yellow)',Diambil:'var(--secondary)',Terlambat:'var(--red)'};
+  psp.forEach(p=>{if(sts[p.status]!==undefined)sts[p.status]++;});
+  const maxS=Math.max(...Object.values(sts),1);
+  document.getElementById('chart-status').innerHTML=Object.entries(sts).map(([k,v])=>`<div class="chart-bar-item"><div class="chart-bar-label">${k}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(v/maxS*100).toFixed(0)}%;background:${stColors[k]}"></div></div><div class="chart-bar-val">${v}</div></div>`).join('');
+  const recent=[...psp].sort((a,b)=>new Date(b.tanggalMasuk)-new Date(a.tanggalMasuk)).slice(0,5);
+  document.getElementById('recent-psp').innerHTML=recent.length?recent.map(p=>`<tr><td>${Utils.truncate(p.namaUser,14)}</td><td>${Utils.truncate(p.namaBarang,14)}</td><td>${Utils.statusBadge(p.status)}</td><td style="font-size:12px">${Utils.formatDate(p.tanggalMasuk)}</td></tr>`).join(''):'<tr class="empty-row"><td colspan="4">Belum ada data</td></tr>';
+  document.getElementById('activity-feed').innerHTML=log.slice(0,8).map(a=>`<div class="activity-item"><div class="activity-dot"></div><div class="activity-text">${a.aktivitas}</div><div class="activity-time">${a.tanggal}</div></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;padding:10px 0">Belum ada aktivitas</div>';
+}
+const mq=window.matchMedia('(max-width:768px)');
+function hr(e){['mid-grid','bot-grid'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.gridTemplateColumns=e.matches?'1fr':'';});}
+mq.addEventListener('change',hr);hr(mq);
+</script>
+</body></html>

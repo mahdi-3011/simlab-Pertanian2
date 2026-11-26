@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Data Barang – AutoLab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>📦 Data Barang</h2><div class="breadcrumb">Admin › Data Barang</div></div>
+        <div class="action-row">
+          <button class="btn btn-secondary btn-sm" onclick="importCSV()">📥 Import</button>
+          <button class="btn btn-secondary btn-sm" onclick="doExportCSV()">📤 Export</button>
+          <button class="btn btn-primary" onclick="openAddModal()">➕ Tambah Barang</button>
+        </div>
+      </div>
+      <div class="bulk-bar" id="bulk-bar">
+        <span class="bulk-count"><span id="bulk-count">0</span> dipilih</span>
+        <button class="btn btn-danger btn-sm" onclick="bulkDelete()">🗑️ Hapus Terpilih</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSelection()">✕ Batal</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Daftar Barang</span><span id="total-count" style="font-size:13px;color:var(--text-muted)"></span></div>
+        <div class="table-controls">
+          <div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari nama, kode, deskripsi..." oninput="applyFilters()"></div>
+          <select class="filter-select" id="filter-kategori" onchange="applyFilters()"><option value="">Semua Kategori</option></select>
+          <select class="filter-select" id="filter-kondisi" onchange="applyFilters()"><option value="">Semua Kondisi</option><option>Baik</option><option>Rusak Ringan</option><option>Rusak Berat</option><option>Perlu Servis</option></select>
+          <select class="filter-select" id="per-page" onchange="applyFilters()"><option value="10">10/hal</option><option value="25">25/hal</option><option value="50">50/hal</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th class="check-col"><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
+              <th onclick="sortBy('kodeBarang')">Kode <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('namaBarang')">Nama Barang <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('kategori')">Kategori <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('jumlah')">Jumlah <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('kondisi')">Kondisi <span class="sort-icon">↕</span></th>
+              <th>Lokasi</th><th>Foto</th><th>Aksi</th>
+            </tr></thead>
+            <tbody id="barang-tbody"></tbody>
+          </table>
+        </div>
+        <div id="pagination"></div>
+      </div>
+      <button class="fab" onclick="openAddModal()">➕</button>
+    </main>
+  </div>
+</div>
+
+<!-- Modal Add/Edit -->
+<div class="modal-overlay" id="modal-barang">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3 id="modal-title">Tambah Barang</h3><button class="modal-close" onclick="Modal.close('modal-barang')">×</button></div>
+    <div class="modal-body">
+      <form id="form-barang" onsubmit="return false">
+        <div class="form-grid">
+          <div class="form-group"><label>Kode Barang</label><input name="kodeBarang" placeholder="Auto-generate atau isi manual"></div>
+          <div class="form-group"><label class="label-req">Nama Barang</label><input name="namaBarang" required></div>
+          <div class="form-group"><label class="label-req">Kategori</label>
+            <select name="kategori" required><option value="">Pilih</option><option>Alat Tangan</option><option>Alat Ukur</option><option>Komponen Mesin</option><option>Komponen Kelistrikan</option><option>Bahan Habis Pakai</option><option>Alat Keselamatan</option><option>Lainnya</option></select>
+          </div>
+          <div class="form-group"><label class="label-req">Jumlah</label><input name="jumlah" type="number" min="0" required></div>
+          <div class="form-group"><label class="label-req">Kondisi</label>
+            <select name="kondisi" required><option value="">Pilih</option><option>Baik</option><option>Rusak Ringan</option><option>Rusak Berat</option><option>Perlu Servis</option></select>
+          </div>
+          <div class="form-group"><label>Lokasi Penyimpanan</label><input name="lokasi" placeholder="Rak A1, Laci 3..."></div>
+          <div class="form-group span-2"><label>Deskripsi</label><textarea name="deskripsi" rows="3"></textarea></div>
+          <div class="form-group span-2">
+            <label>Foto Barang</label>
+            <div class="img-upload-box" id="foto-upload-box" onclick="document.getElementById('foto-input').click()">
+              <div class="img-upload-icon">📷</div><div>Klik untuk upload foto</div><div style="font-size:11px;margin-top:4px">JPG, PNG, max 2MB</div>
+            </div>
+            <input type="file" id="foto-input" accept="image/*" style="display:none" onchange="handleFotoUpload(this)">
+            <input type="hidden" name="foto" id="foto-data">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-barang')">Batal</button>
+      <button class="btn btn-primary" onclick="saveBarang()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Preview / QR -->
+<div class="modal-overlay" id="modal-preview"><div class="modal modal-sm"><div class="modal-header"><h3>Detail Barang</h3><button class="modal-close" onclick="Modal.close('modal-preview')">×</button></div><div class="modal-body" id="preview-body"></div></div></div>
+<div class="modal-overlay" id="modal-qr"><div class="modal modal-sm"><div class="modal-header"><h3>QR Code</h3><button class="modal-close" onclick="Modal.close('modal-qr')">×</button></div><div class="modal-body" style="text-align:center" id="qr-body"></div></div></div>
+<input type="file" id="import-csv-input" accept=".csv" style="display:none" onchange="handleImportCSV(this)">
+
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('barang','📦 Data Barang','admin');
+let editingId=null,currentPage=1,sortKey='namaBarang',sortDir='asc';
+const selectedIds=new Set();
+
+function getFiltered(){
+  let data=Storage.getBarang();
+  const q=document.getElementById('search').value.toLowerCase();
+  const cat=document.getElementById('filter-kategori').value;
+  const kond=document.getElementById('filter-kondisi').value;
+  if(q)data=data.filter(b=>(b.namaBarang||'').toLowerCase().includes(q)||(b.kodeBarang||'').toLowerCase().includes(q)||(b.deskripsi||'').toLowerCase().includes(q));
+  if(cat)data=data.filter(b=>b.kategori===cat);
+  if(kond)data=data.filter(b=>b.kondisi===kond);
+  return Utils.sortArr(data,sortKey,sortDir);
+}
+function applyFilters(){currentPage=1;renderTable();}
+function renderTable(){
+  const filtered=getFiltered();
+  const perPage=parseInt(document.getElementById('per-page').value)||10;
+  const paged=Utils.paginate(filtered,currentPage,perPage);
+  document.getElementById('total-count').textContent=`${filtered.length} barang`;
+  const tbody=document.getElementById('barang-tbody');
+  if(!paged.data.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="empty-icon">📦</div><h3>Belum Ada Barang</h3><p>Tambahkan barang pertama Anda</p></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(b=>`<tr>
+    <td><input type="checkbox" ${selectedIds.has(b.id)?'checked':''} onchange="toggleSelect('${b.id}',this)"></td>
+    <td><code style="font-size:11px;background:var(--card-2);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">${b.kodeBarang||'-'}</code></td>
+    <td><b>${Utils.truncate(b.namaBarang,22)}</b></td>
+    <td>${Utils.truncate(b.kategori||'-',16)}</td>
+    <td><b>${b.jumlah||0}</b></td>
+    <td>${Utils.kondisiBadge(b.kondisi)}</td>
+    <td>${Utils.truncate(b.lokasi||'-',14)}</td>
+    <td>${b.foto?`<img class="img-thumb" src="${b.foto}" onclick="previewFoto('${b.id}')">`:'<div class="no-img">📷</div>'}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-info btn-sm btn-icon-only" onclick="viewBarang('${b.id}')" title="Detail">👁</button>
+      <button class="btn btn-secondary btn-sm btn-icon-only" onclick="showQR('${b.id}')" title="QR">📱</button>
+      <button class="btn btn-primary btn-sm btn-icon-only" onclick="editBarang('${b.id}')" title="Edit">✏️</button>
+      <button class="btn btn-danger btn-sm btn-icon-only" onclick="deleteBarang('${b.id}')" title="Hapus">🗑️</button>
+    </div></td>
+  </tr>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+  updateBulkBar();
+}
+function sortBy(key){if(sortKey===key)sortDir=sortDir==='asc'?'desc':'asc';else{sortKey=key;sortDir='asc';}renderTable();}
+function populateKategoriFilter(){const cats=[...new Set(Storage.getBarang().map(b=>b.kategori).filter(Boolean))];const sel=document.getElementById('filter-kategori');sel.innerHTML='<option value="">Semua Kategori</option>'+cats.map(c=>`<option>${c}</option>`).join('');}
+function openAddModal(){editingId=null;document.getElementById('modal-title').textContent='Tambah Barang Baru';document.getElementById('form-barang').reset();document.getElementById('foto-data').value='';resetFotoUploadBox();AutoSave.restore('form-barang');Modal.open('modal-barang');}
+function editBarang(id){editingId=id;const b=Storage.getBarangById(id);if(!b)return;document.getElementById('modal-title').textContent='Edit Barang';const form=document.getElementById('form-barang');Object.keys(b).forEach(k=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.value=b[k];});if(b.foto){document.getElementById('foto-upload-box').innerHTML=`<img src="${b.foto}" style="max-height:100px;border-radius:8px">`;document.getElementById('foto-data').value=b.foto;}Modal.open('modal-barang');}
+function saveBarang(){
+  if(!Validator.validate('form-barang',{namaBarang:{required:true,label:'Nama Barang'},kategori:{required:true,label:'Kategori'},jumlah:{required:true,label:'Jumlah'},kondisi:{required:true,label:'Kondisi'}}))return;
+  const form=document.getElementById('form-barang');const data={};
+  form.querySelectorAll('input,select,textarea').forEach(el=>{if(el.name)data[el.name]=el.value;});
+  data.foto=document.getElementById('foto-data').value;
+  if(editingId){Storage.updateBarang(editingId,data);Storage.addRiwayat(`Edit barang: ${data.namaBarang}`,currentUser.nama);Toast.success('Barang diperbarui');}
+  else{Storage.addBarang(data);Storage.addRiwayat(`Tambah barang: ${data.namaBarang}`,currentUser.nama);Toast.success('Barang ditambahkan');}
+  AutoSave.clear('form-barang');Modal.close('modal-barang');populateKategoriFilter();renderTable();
+}
+function deleteBarang(id){const b=Storage.getBarangById(id);if(!b)return;showConfirm({title:'Hapus Barang',message:`Hapus barang <b>${b.namaBarang}</b>?`,onConfirm(){UndoStack.push(`"${b.namaBarang}" dihapus`,()=>{Storage.addBarang({...b,id:undefined});renderTable();Toast.info('Dipulihkan');});Storage.deleteBarang(id);Storage.addRiwayat(`Hapus barang: ${b.namaBarang}`,currentUser.nama);Toast.success('Barang dihapus');renderTable();}});}
+function viewBarang(id){const b=Storage.getBarangById(id);if(!b)return;document.getElementById('preview-body').innerHTML=`${b.foto?`<img src="${b.foto}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px">`:''}<table style="width:100%;font-size:13px"><tr><td style="color:var(--text-muted);padding:6px 0;width:40%">Kode</td><td><code>${b.kodeBarang||'-'}</code></td></tr><tr><td style="color:var(--text-muted)">Nama</td><td><b>${b.namaBarang}</b></td></tr><tr><td style="color:var(--text-muted)">Kategori</td><td>${b.kategori||'-'}</td></tr><tr><td style="color:var(--text-muted)">Jumlah</td><td>${b.jumlah}</td></tr><tr><td style="color:var(--text-muted)">Kondisi</td><td>${Utils.kondisiBadge(b.kondisi)}</td></tr><tr><td style="color:var(--text-muted)">Lokasi</td><td>${b.lokasi||'-'}</td></tr><tr><td style="color:var(--text-muted)">Deskripsi</td><td>${b.deskripsi||'-'}</td></tr><tr><td style="color:var(--text-muted)">Tgl Input</td><td>${Utils.formatDate(b.tanggalInput)}</td></tr></table>`;Modal.open('modal-preview');}
+function showQR(id){const b=Storage.getBarangById(id);if(!b)return;document.getElementById('qr-body').innerHTML=`<img src="${Utils.generateQR(`AutoLab|${b.id}|${b.kodeBarang}|${b.namaBarang}`,200)}" style="border-radius:8px;margin-bottom:12px"><div style="font-size:13px;color:var(--text-muted)">${b.kodeBarang} – ${b.namaBarang}</div>`;Modal.open('modal-qr');}
+function previewFoto(id){const b=Storage.getBarangById(id);if(!b||!b.foto)return;document.getElementById('preview-body').innerHTML=`<img src="${b.foto}" style="width:100%;border-radius:8px">`;Modal.open('modal-preview');}
+async function handleFotoUpload(input){const file=input.files[0];if(!file)return;if(file.size>2*1024*1024){Toast.error('Max 2MB');return;}const b64=await Utils.fileToBase64(file);document.getElementById('foto-data').value=b64;document.getElementById('foto-upload-box').innerHTML=`<img src="${b64}" style="max-height:100px;border-radius:8px"><div style="font-size:11px;margin-top:6px;color:var(--text-muted)">Klik untuk ganti</div>`;}
+function resetFotoUploadBox(){document.getElementById('foto-upload-box').innerHTML=`<div class="img-upload-icon">📷</div><div>Klik untuk upload foto</div><div style="font-size:11px;margin-top:4px">JPG, PNG, max 2MB</div>`;}
+function toggleSelect(id,cb){if(cb.checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkBar();}
+function toggleAll(cb){const filtered=getFiltered();if(cb.checked)filtered.forEach(b=>selectedIds.add(b.id));else selectedIds.clear();renderTable();}
+function updateBulkBar(){document.getElementById('bulk-count').textContent=selectedIds.size;document.getElementById('bulk-bar').classList.toggle('visible',selectedIds.size>0);}
+function clearSelection(){selectedIds.clear();document.getElementById('check-all').checked=false;renderTable();}
+function bulkDelete(){if(!selectedIds.size)return;showConfirm({title:'Hapus Terpilih',message:`Hapus ${selectedIds.size} barang?`,onConfirm(){selectedIds.forEach(id=>Storage.deleteBarang(id));Storage.addRiwayat(`Bulk delete ${selectedIds.size} barang`,currentUser.nama);Toast.success(`${selectedIds.size} barang dihapus`);selectedIds.clear();renderTable();}});}
+function doExportCSV(){Utils.exportCSV(getFiltered().map(b=>({ID:b.id,Kode:b.kodeBarang,Nama:b.namaBarang,Kategori:b.kategori,Jumlah:b.jumlah,Kondisi:b.kondisi,Lokasi:b.lokasi,Deskripsi:b.deskripsi})),'data-barang.csv');Toast.success('Diekspor');}
+function importCSV(){document.getElementById('import-csv-input').click();}
+function handleImportCSV(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{const lines=e.target.result.split('\n').slice(1).filter(Boolean);let count=0;lines.forEach(line=>{const[,kode,nama,kat,jumlah,kondisi,lokasi,desk]=line.split(',').map(s=>s.replace(/^"|"$/g,''));if(nama){Storage.addBarang({kodeBarang:kode,namaBarang:nama,kategori:kat,jumlah:parseInt(jumlah)||0,kondisi:kondisi||'Baik',lokasi,deskripsi:desk});count++;}});Toast.success(`${count} barang diimport`);populateKategoriFilter();renderTable();};reader.readAsText(file);input.value='';}
+document.getElementById('form-barang').addEventListener('input',()=>AutoSave.save('form-barang'));
+populateKategoriFilter();renderTable();
+</script>
+</body></html>
