@@ -32,10 +32,10 @@ function renderSidebar(user, activeNav) {
 
   sidebar.innerHTML = `
     <div class="sidebar-logo">
-      <div class="logo-icon">🔧</div>
+      <img src="favicon.png" alt="Logo SimLAB" class="logo-img">
       <div class="logo-text">
-        <div class="brand">AutoLab</div>
-        <div class="sub">Bengkel Otomotif</div>
+        <div class="brand">SimLAB</div>
+        <div class="sub">Lab Pertanian</div>
       </div>
     </div>
     <div class="sidebar-user">
