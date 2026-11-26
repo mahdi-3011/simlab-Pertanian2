@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Penyimpanan – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header"><div><h2>🗄️ Data Penyimpanan</h2><div class="breadcrumb">Admin › Penyimpanan</div></div><div class="action-row"><button class="btn btn-secondary btn-sm" onclick="doExportCSV()">📤 Export</button><button class="btn btn-primary" onclick="openAddModal()">➕ Tambah</button></div></div>
+      <div class="stats-grid" id="psp-stats"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Daftar Penyimpanan</span><span id="psp-count" style="font-size:13px;color:var(--text-muted)"></span></div>
+        <div class="table-controls">
+          <div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari user, barang..." oninput="applyFilters()"></div>
+          <select class="filter-select" id="filter-status" onchange="applyFilters()"><option value="">Semua Status</option><option>Disimpan</option><option>Pending</option><option>Diambil</option><option>Terlambat</option></select>
+          <input type="date" class="filter-select" id="filter-tgl" onchange="applyFilters()">
+          <select class="filter-select" id="per-page" onchange="applyFilters()"><option value="10">10/hal</option><option value="25">25/hal</option></select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th onclick="sortBy('id')">ID</th><th onclick="sortBy('namaUser')">User</th><th onclick="sortBy('namaBarang')">Barang</th><th>Jml</th><th onclick="sortBy('tanggalMasuk')">Tgl Masuk</th><th>Est. Ambil</th><th onclick="sortBy('status')">Status</th><th>Catatan</th><th>Aksi</th></tr></thead>
+          <tbody id="psp-tbody"></tbody>
+        </table></div>
+        <div id="pagination"></div>
+      </div>
+      <button class="fab" onclick="openAddModal()">➕</button>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-psp">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3 id="modal-title">Tambah Penyimpanan</h3><button class="modal-close" onclick="Modal.close('modal-psp')">×</button></div>
+    <div class="modal-body"><form id="form-psp" onsubmit="return false"><div class="form-grid">
+      <div class="form-group"><label class="label-req">Nama User</label><input name="namaUser" required></div>
+      <div class="form-group"><label class="label-req">Nama Barang</label><input name="namaBarang" required></div>
+      <div class="form-group"><label>Kategori</label><select name="kategori"><option value="">Pilih</option><option>Alat Tangan</option><option>Alat Ukur</option><option>Komponen Mesin</option><option>Komponen Kelistrikan</option><option>Bahan Habis Pakai</option><option>Alat Keselamatan</option><option>Lainnya</option></select></div>
+      <div class="form-group"><label class="label-req">Jumlah</label><input name="jumlah" type="number" min="1" required></div>
+      <div class="form-group"><label>Tanggal Masuk</label><input name="tanggalMasuk" type="date"></div>
+      <div class="form-group"><label>Estimasi Ambil</label><input name="estimasiAmbil" type="date"></div>
+      <div class="form-group"><label>Status</label><select name="status"><option>Pending</option><option>Disimpan</option><option>Diambil</option><option>Terlambat</option></select></div>
+      <div class="form-group"></div>
+      <div class="form-group span-2"><label>Catatan Admin</label><textarea name="catatanAdmin" rows="2"></textarea></div>
+    </div></form></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-psp')">Batal</button><button class="btn btn-primary" onclick="savePenyimpanan()">💾 Simpan</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-status">
+  <div class="modal modal-sm">
+    <div class="modal-header"><h3>Ubah Status</h3><button class="modal-close" onclick="Modal.close('modal-status')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="status-edit-id">
+      <div id="status-edit-info" style="font-size:13px;color:var(--text-muted);margin-bottom:12px"></div>
+      <div class="form-group" style="margin-bottom:12px"><label>Status Baru</label><select id="status-new"><option>Pending</option><option>Disimpan</option><option>Diambil</option><option>Terlambat</option></select></div>
+      <div class="form-group"><label>Catatan</label><textarea id="status-catatan" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-status')">Batal</button><button class="btn btn-primary" onclick="applyStatusChange()">✅ Simpan</button></div>
+  </div>
+</div>
+
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('penyimpanan','🗄️ Penyimpanan','admin');
+let editingId=null,currentPage=1,sortKey='tanggalMasuk',sortDir='desc';
+function getFiltered(){
+  let data=Storage.getPenyimpanan();
+  data=data.map(p=>{if(p.estimasiAmbil&&p.status==='Disimpan'&&new Date(p.estimasiAmbil)<new Date()){p.status='Terlambat';Storage.updatePenyimpanan(p.id,{status:'Terlambat'});}return p;});
+  const q=document.getElementById('search').value.toLowerCase();
+  const st=document.getElementById('filter-status').value;
+  const tgl=document.getElementById('filter-tgl').value;
+  if(q)data=data.filter(p=>(p.namaUser||'').toLowerCase().includes(q)||(p.namaBarang||'').toLowerCase().includes(q));
+  if(st)data=data.filter(p=>p.status===st);
+  if(tgl)data=data.filter(p=>p.tanggalMasuk&&p.tanggalMasuk.startsWith(tgl));
+  return Utils.sortArr(data,sortKey,sortDir);
+}
+function applyFilters(){currentPage=1;renderTable();}
+function renderStats(){
+  const data=Storage.getPenyimpanan();
+  const colors=['var(--silver-2)','var(--green)','var(--yellow)','var(--red)'];
+  [['Total',data.length,'📋'],['Disimpan',data.filter(p=>p.status==='Disimpan').length,'✅'],['Pending',data.filter(p=>p.status==='Pending').length,'⏳'],['Terlambat',data.filter(p=>p.status==='Terlambat').length,'🚨']].forEach(([label,value,icon],i)=>{});
+  document.getElementById('psp-stats').innerHTML=[['📋','Total',data.length,'var(--silver-2)'],['✅','Disimpan',data.filter(p=>p.status==='Disimpan').length,'var(--green)'],['⏳','Pending',data.filter(p=>p.status==='Pending').length,'var(--yellow)'],['🚨','Terlambat',data.filter(p=>p.status==='Terlambat').length,'var(--red)']].map(([icon,label,value,color])=>`<div class="stat-card" style="--stat-accent:${color}"><div class="stat-icon">${icon}</div><div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div></div>`).join('');
+}
+function renderTable(){
+  renderStats();
+  const filtered=getFiltered();
+  const perPage=parseInt(document.getElementById('per-page').value)||10;
+  const paged=Utils.paginate(filtered,currentPage,perPage);
+  document.getElementById('psp-count').textContent=`${filtered.length} data`;
+  const tbody=document.getElementById('psp-tbody');
+  if(!paged.data.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="empty-icon">🗄️</div><h3>Tidak Ada Data</h3></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(p=>`<tr>
+    <td><code style="font-size:10px">${p.id}</code></td>
+    <td><b>${p.namaUser}</b></td>
+    <td>${Utils.truncate(p.namaBarang,18)}</td>
+    <td>${p.jumlah}</td>
+    <td>${Utils.formatDate(p.tanggalMasuk)}</td>
+    <td>${Utils.formatDate(p.estimasiAmbil)}</td>
+    <td><select class="quick-edit-select" onchange="quickStatus('${p.id}',this.value)">${['Pending','Disimpan','Diambil','Terlambat'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></td>
+    <td style="max-width:100px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${Utils.truncate(p.catatanAdmin||'-',18)}</div></td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-info btn-sm btn-icon-only" onclick="quickEditStatus('${p.id}')" title="Status">⚡</button>
+      <button class="btn btn-primary btn-sm btn-icon-only" onclick="editPenyimpanan('${p.id}')" title="Edit">✏️</button>
+      <button class="btn btn-danger btn-sm btn-icon-only" onclick="deletePenyimpanan('${p.id}')" title="Hapus">🗑️</button>
+    </div></td>
+  </tr>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+}
+function sortBy(key){if(sortKey===key)sortDir=sortDir==='asc'?'desc':'asc';else{sortKey=key;sortDir='asc';}renderTable();}
+function quickStatus(id,newStatus){Storage.updatePenyimpanan(id,{status:newStatus});Storage.addRiwayat(`Ubah status ${id} → ${newStatus}`,currentUser.nama);Toast.success(`Status → ${newStatus}`);renderStats();}
+function quickEditStatus(id){const p=Storage.getPenyimpanan().find(x=>x.id===id);if(!p)return;document.getElementById('status-edit-id').value=id;document.getElementById('status-edit-info').textContent=`${p.namaUser} – ${p.namaBarang}`;document.getElementById('status-new').value=p.status;document.getElementById('status-catatan').value=p.catatanAdmin||'';Modal.open('modal-status');}
+function applyStatusChange(){const id=document.getElementById('status-edit-id').value;const status=document.getElementById('status-new').value;const catatan=document.getElementById('status-catatan').value;Storage.updatePenyimpanan(id,{status,catatanAdmin:catatan});Storage.addRiwayat(`Edit status ${id} → ${status}`,currentUser.nama);Toast.success('Status diperbarui');Modal.close('modal-status');renderTable();}
+function openAddModal(){editingId=null;document.getElementById('modal-title').textContent='Tambah Penyimpanan';document.getElementById('form-psp').reset();document.querySelector('[name="tanggalMasuk"]').value=new Date().toISOString().slice(0,10);Modal.open('modal-psp');}
+function editPenyimpanan(id){editingId=id;const p=Storage.getPenyimpanan().find(x=>x.id===id);if(!p)return;document.getElementById('modal-title').textContent='Edit Penyimpanan';const form=document.getElementById('form-psp');Object.keys(p).forEach(k=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.value=k==='tanggalMasuk'||k==='estimasiAmbil'?(p[k]||'').slice(0,10):p[k];});Modal.open('modal-psp');}
+function savePenyimpanan(){if(!Validator.validate('form-psp',{namaUser:{required:true,label:'Nama User'},namaBarang:{required:true,label:'Nama Barang'},jumlah:{required:true,label:'Jumlah'}}))return;const form=document.getElementById('form-psp');const data={};form.querySelectorAll('input,select,textarea').forEach(el=>{if(el.name)data[el.name]=el.value;});if(editingId){Storage.updatePenyimpanan(editingId,data);Storage.addRiwayat(`Edit penyimpanan: ${data.namaBarang}`,currentUser.nama);Toast.success('Data diperbarui');}else{Storage.addPenyimpanan(data);Storage.addRiwayat(`Tambah penyimpanan: ${data.namaBarang}`,currentUser.nama);Toast.success('Penyimpanan ditambahkan');}Modal.close('modal-psp');renderTable();}
+function deletePenyimpanan(id){const p=Storage.getPenyimpanan().find(x=>x.id===id);if(!p)return;showConfirm({title:'Hapus Penyimpanan',message:`Hapus <b>${p.namaBarang}</b>?`,onConfirm(){UndoStack.push(`"${p.namaBarang}" dihapus`,()=>{Storage.addPenyimpanan({...p,id:undefined});renderTable();Toast.info('Dipulihkan');});Storage.deletePenyimpanan(id);Storage.addRiwayat(`Hapus penyimpanan: ${p.namaBarang}`,currentUser.nama);Toast.success('Dihapus');renderTable();}});}
+function doExportCSV(){Utils.exportCSV(getFiltered().map(p=>({ID:p.id,User:p.namaUser,Barang:p.namaBarang,Jumlah:p.jumlah,Status:p.status,TglMasuk:Utils.formatDate(p.tanggalMasuk),EstAmbil:Utils.formatDate(p.estimasiAmbil)})),'penyimpanan.csv');Toast.success('Diekspor');}
+renderTable();
+</script>
+</body></html>

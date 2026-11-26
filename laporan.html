@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Laporan – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>📊 Laporan</h2><div class="breadcrumb">Admin › Laporan</div></div>
+        <button class="btn btn-primary" onclick="openAddModal()">➕ Buat Laporan</button>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('list')">📄 Daftar Laporan</div>
+        <div class="tab" onclick="switchTab('preview')">📊 Generate & Cetak</div>
+      </div>
+
+      <!-- Tab List -->
+      <div class="tab-content active" id="tab-list">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Daftar Laporan Tersimpan</span>
+            <div class="search-wrap" style="max-width:240px"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Cari laporan..." oninput="renderTable()"></div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Judul</th><th>Jenis</th><th>Periode</th><th>Dibuat Oleh</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+            <tbody id="laporan-tbody"></tbody>
+          </table></div>
+          <div id="pagination"></div>
+        </div>
+      </div>
+
+      <!-- Tab Preview -->
+      <div class="tab-content" id="tab-preview">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Generate Laporan</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" id="gen-grid">
+            <div class="form-group"><label>Jenis Laporan</label>
+              <select id="gen-jenis"><option value="barang">Data Barang</option><option value="penyimpanan">Penyimpanan</option><option value="user">Data User</option><option value="aktivitas">Aktivitas</option></select>
+            </div>
+            <div class="form-group"><label>Filter Status (Penyimpanan)</label>
+              <select id="gen-status"><option value="">Semua</option><option>Disimpan</option><option>Pending</option><option>Diambil</option><option>Terlambat</option></select>
+            </div>
+            <div class="form-group"><label>Dari Tanggal</label><input type="date" id="gen-dari"></div>
+            <div class="form-group"><label>Sampai Tanggal</label><input type="date" id="gen-sampai"></div>
+          </div>
+          <div class="action-row" style="margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="generatePreview()">🔄 Generate Preview</button>
+            <button class="btn btn-primary" onclick="printLaporan()">🖨️ Cetak</button>
+            <button class="btn btn-success" onclick="saveLaporanGenerated()">💾 Simpan Laporan</button>
+          </div>
+          <div id="laporan-preview" style="background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;min-height:200px;font-size:13px">
+            <div style="text-align:center;color:var(--text-muted);padding:40px 20px">Pilih jenis laporan lalu klik "Generate Preview"</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="fab" onclick="openAddModal()">➕</button>
+    </main>
+  </div>
+</div>
+
+<!-- Modal Laporan -->
+<div class="modal-overlay" id="modal-laporan">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-title">Buat Laporan</h3><button class="modal-close" onclick="Modal.close('modal-laporan')">×</button></div>
+    <div class="modal-body"><form id="form-laporan" onsubmit="return false"><div class="form-grid col-1">
+      <div class="form-group"><label class="label-req">Judul Laporan</label><input name="judul" placeholder="Contoh: Laporan Bulanan Oktober 2024" required></div>
+      <div class="form-group"><label>Jenis</label><select name="jenis"><option value="barang">Data Barang</option><option value="penyimpanan">Penyimpanan</option><option value="user">Data User</option><option value="aktivitas">Aktivitas</option></select></div>
+      <div class="form-group"><label>Periode</label><input name="periode" placeholder="Oktober 2024"></div>
+      <div class="form-group"><label>Keterangan</label><textarea name="keterangan" rows="3"></textarea></div>
+    </div></form></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="Modal.close('modal-laporan')">Batal</button><button class="btn btn-primary" onclick="saveLaporanMeta()">💾 Simpan</button></div>
+  </div>
+</div>
+
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('laporan','📊 Laporan','admin');
+let editingId=null,currentPage=1,previewHTML='';
+
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['list','preview'][i]===tab));
+  document.querySelectorAll('.tab-content').forEach((t,i)=>t.classList.toggle('active',['tab-list','tab-preview'][i]==='tab-'+tab));
+  if(tab==='list')renderTable();
+}
+function renderTable(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  let data=Storage.getLaporan();
+  if(q)data=data.filter(l=>(l.judul||'').toLowerCase().includes(q));
+  const paged=Utils.paginate(data,currentPage,10);
+  const tbody=document.getElementById('laporan-tbody');
+  if(!data.length){tbody.innerHTML=`<tr class="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><h3>Belum Ada Laporan</h3></div></td></tr>`;document.getElementById('pagination').innerHTML='';return;}
+  tbody.innerHTML=paged.data.map(l=>`<tr>
+    <td><b>${l.judul}</b></td>
+    <td>${Utils.statusBadge(l.jenis||'-')}</td>
+    <td>${l.periode||'-'}</td>
+    <td>${l.dibuatOleh||'-'}</td>
+    <td style="font-size:12px">${Utils.formatDate(l.createdAt)}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-primary btn-sm btn-icon-only" onclick="editLaporan('${l.id}')" title="Edit">✏️</button>
+      <button class="btn btn-danger btn-sm btn-icon-only" onclick="deleteLaporan('${l.id}')" title="Hapus">🗑️</button>
+    </div></td>
+  </tr>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderTable();}`);
+}
+function openAddModal(){editingId=null;document.getElementById('modal-title').textContent='Buat Laporan Baru';document.getElementById('form-laporan').reset();Modal.open('modal-laporan');}
+function editLaporan(id){editingId=id;const l=Storage.getLaporan().find(x=>x.id===id);if(!l)return;document.getElementById('modal-title').textContent='Edit Laporan';const form=document.getElementById('form-laporan');Object.keys(l).forEach(k=>{const el=form.querySelector(`[name="${k}"]`);if(el)el.value=l[k];});Modal.open('modal-laporan');}
+function saveLaporanMeta(){if(!Validator.validate('form-laporan',{judul:{required:true,label:'Judul'}}))return;const form=document.getElementById('form-laporan');const data={};form.querySelectorAll('input,select,textarea').forEach(el=>{if(el.name)data[el.name]=el.value;});data.dibuatOleh=currentUser.nama;if(editingId){Storage.updateLaporan(editingId,data);Toast.success('Laporan diperbarui');}else{Storage.addLaporan(data);Storage.addRiwayat(`Buat laporan: ${data.judul}`,currentUser.nama);Toast.success('Laporan disimpan');}Modal.close('modal-laporan');renderTable();}
+function deleteLaporan(id){showConfirm({title:'Hapus Laporan',message:'Hapus laporan ini?',onConfirm(){Storage.deleteLaporan(id);Toast.success('Laporan dihapus');renderTable();}});}
+function generatePreview(){
+  const jenis=document.getElementById('gen-jenis').value;
+  const dari=document.getElementById('gen-dari').value;
+  const sampai=document.getElementById('gen-sampai').value;
+  const status=document.getElementById('gen-status').value;
+  const now=Utils.formatDateTime(new Date().toISOString());
+  const thStyle='style="background:var(--accent);color:#fff;padding:8px 12px;text-align:left;font-size:12px"';
+  const tdStyle='style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"';
+  let tbl='';
+  if(jenis==='barang'){
+    let data=Storage.getBarang();
+    if(dari)data=data.filter(b=>b.tanggalInput>=dari);
+    if(sampai)data=data.filter(b=>b.tanggalInput<=sampai+'T23:59:59');
+    tbl=`<p style="margin-bottom:8px;font-size:13px"><b>Total: ${data.length} barang</b></p><table style="width:100%;border-collapse:collapse"><thead><tr><th ${thStyle}>Kode</th><th ${thStyle}>Nama</th><th ${thStyle}>Kategori</th><th ${thStyle}>Jumlah</th><th ${thStyle}>Kondisi</th><th ${thStyle}>Lokasi</th></tr></thead><tbody>${data.map(b=>`<tr><td ${tdStyle}>${b.kodeBarang||'-'}</td><td ${tdStyle}><b>${b.namaBarang}</b></td><td ${tdStyle}>${b.kategori||'-'}</td><td ${tdStyle}>${b.jumlah}</td><td ${tdStyle}>${b.kondisi}</td><td ${tdStyle}>${b.lokasi||'-'}</td></tr>`).join('')}</tbody></table>`;
+  }else if(jenis==='penyimpanan'){
+    let data=Storage.getPenyimpanan();
+    if(status)data=data.filter(p=>p.status===status);
+    if(dari)data=data.filter(p=>p.tanggalMasuk>=dari);
+    if(sampai)data=data.filter(p=>p.tanggalMasuk<=sampai+'T23:59:59');
+    tbl=`<p style="margin-bottom:8px;font-size:13px"><b>Total: ${data.length} data</b></p><table style="width:100%;border-collapse:collapse"><thead><tr><th ${thStyle}>User</th><th ${thStyle}>Barang</th><th ${thStyle}>Jml</th><th ${thStyle}>Tgl Masuk</th><th ${thStyle}>Est. Ambil</th><th ${thStyle}>Status</th></tr></thead><tbody>${data.map(p=>`<tr><td ${tdStyle}>${p.namaUser}</td><td ${tdStyle}>${p.namaBarang}</td><td ${tdStyle}>${p.jumlah}</td><td ${tdStyle}>${Utils.formatDate(p.tanggalMasuk)}</td><td ${tdStyle}>${Utils.formatDate(p.estimasiAmbil)}</td><td ${tdStyle}>${p.status}</td></tr>`).join('')}</tbody></table>`;
+  }else if(jenis==='user'){
+    const data=Storage.getUsers();
+    tbl=`<p style="margin-bottom:8px;font-size:13px"><b>Total: ${data.length} user</b></p><table style="width:100%;border-collapse:collapse"><thead><tr><th ${thStyle}>Nama</th><th ${thStyle}>Username</th><th ${thStyle}>Role</th><th ${thStyle}>Email</th><th ${thStyle}>Status</th></tr></thead><tbody>${data.map(u=>`<tr><td ${tdStyle}>${u.nama}</td><td ${tdStyle}>@${u.username}</td><td ${tdStyle}>${u.role}</td><td ${tdStyle}>${u.email||'-'}</td><td ${tdStyle}>${u.active?'Aktif':'Nonaktif'}</td></tr>`).join('')}</tbody></table>`;
+  }else{
+    let data=Storage.getRiwayat();
+    if(dari)data=data.filter(r=>r.timestamp>=dari);
+    tbl=`<p style="margin-bottom:8px;font-size:13px"><b>Total: ${data.length} log</b></p><table style="width:100%;border-collapse:collapse"><thead><tr><th ${thStyle}>Aktivitas</th><th ${thStyle}>User</th><th ${thStyle}>Tanggal</th><th ${thStyle}>Waktu</th></tr></thead><tbody>${data.map(r=>`<tr><td ${tdStyle}>${r.aktivitas}</td><td ${tdStyle}>${r.user}</td><td ${tdStyle}>${r.tanggal}</td><td ${tdStyle}>${r.waktu}</td></tr>`).join('')}</tbody></table>`;
+  }
+  previewHTML=`<div style="border-bottom:2px solid var(--accent);padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:18px;font-weight:700;font-family:Rajdhani,sans-serif;color:var(--white)">🔧 AutoLab — Laporan ${jenis.charAt(0).toUpperCase()+jenis.slice(1)}</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">Dicetak: ${now} | Oleh: ${currentUser.nama}</div></div></div>${tbl}`;
+  document.getElementById('laporan-preview').innerHTML=previewHTML;
+}
+function printLaporan(){if(!previewHTML){generatePreview();}Utils.printSection(previewHTML,'AutoLab — Laporan');}
+function saveLaporanGenerated(){if(!previewHTML){Toast.warning('Generate preview dulu');return;}const jenis=document.getElementById('gen-jenis').value;Storage.addLaporan({judul:`Laporan ${jenis} — ${new Date().toLocaleDateString('id-ID')}`,jenis,periode:new Date().toLocaleDateString('id-ID'),dibuatOleh:currentUser.nama});Storage.addRiwayat(`Generate laporan: ${jenis}`,currentUser.nama);Toast.success('Laporan disimpan');switchTab('list');}
+
+const mq2=window.matchMedia('(max-width:600px)');
+function hr2(e){const g=document.getElementById('gen-grid');if(g)g.style.gridTemplateColumns=e.matches?'1fr':'1fr 1fr';}
+mq2.addEventListener('change',hr2);hr2(mq2);
+renderTable();
+</script>
+</body></html>

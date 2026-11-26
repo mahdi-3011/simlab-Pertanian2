@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Notifikasi – AutoLab</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside><div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h2>🔔 Notifikasi</h2><div class="breadcrumb">Akun › Notifikasi</div></div>
+        <div class="action-row">
+          <button class="btn btn-secondary btn-sm" onclick="markAllRead()">✅ Semua Dibaca</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ Hapus Semua</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="filterTab('all')">📬 Semua <span id="cnt-all" class="nav-badge" style="position:static;margin-left:6px;display:none"></span></div>
+        <div class="tab" onclick="filterTab('unread')">🔴 Belum Dibaca <span id="cnt-unread" class="nav-badge" style="position:static;margin-left:6px;display:none"></span></div>
+        <div class="tab" onclick="filterTab('read')">✅ Sudah Dibaca</div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div id="notif-list"></div>
+        <div id="pagination" style="padding:12px 16px"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="storage.js"></script><script src="utils.js"></script><script src="crud.js"></script><script src="script.js"></script>
+<script>
+const currentUser=initApp('notifikasi','🔔 Notifikasi');
+let currentFilter='all',currentPage=1;
+function filterTab(f){currentFilter=f;currentPage=1;document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['all','unread','read'][i]===f));renderList();}
+function getFiltered(){let data=Storage.getNotifikasi(currentUser.id);if(currentFilter==='unread')data=data.filter(n=>!n.dibaca);if(currentFilter==='read')data=data.filter(n=>n.dibaca);return data;}
+function renderList(){
+  const all=Storage.getNotifikasi(currentUser.id);
+  const unread=all.filter(n=>!n.dibaca);
+  const cntAll=document.getElementById('cnt-all');
+  const cntUnread=document.getElementById('cnt-unread');
+  cntAll.textContent=all.length;cntAll.style.display=all.length?'inline-flex':'none';
+  cntUnread.textContent=unread.length;cntUnread.style.display=unread.length?'inline-flex':'none';
+  const filtered=getFiltered();
+  const paged=Utils.paginate(filtered,currentPage,20);
+  const container=document.getElementById('notif-list');
+  if(!filtered.length){container.innerHTML=`<div class="empty-state"><div class="empty-icon">🔔</div><h3>Tidak Ada Notifikasi</h3><p>Anda tidak memiliki notifikasi${currentFilter==='unread'?' yang belum dibaca':''}</p></div>`;document.getElementById('pagination').innerHTML='';return;}
+  container.innerHTML=paged.data.map(n=>`
+    <div class="notif-card ${n.dibaca?'read':'unread'}" onclick="readNotifItem('${n.id}')">
+      <div class="notif-icon">${n.type==='success'?'✅':n.type==='warning'?'⚠️':n.type==='danger'?'🚨':'ℹ️'}</div>
+      <div class="notif-content">
+        <div class="notif-msg">${n.pesan}</div>
+        <div class="notif-meta">${Utils.formatDateTime(n.waktu)}${!n.dibaca?' • <span style="color:var(--accent);font-weight:600">Belum dibaca</span>':''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm btn-icon-only" onclick="event.stopPropagation();deleteNotif('${n.id}')" title="Hapus">🗑️</button>
+    </div>`).join('');
+  renderPagination('pagination',paged.total,paged.totalPages,currentPage,`function(p){currentPage=p;renderList();}`);
+}
+function readNotifItem(id){Storage.updateNotifikasi(id,{dibaca:true});renderList();}
+function deleteNotif(id){Storage.deleteNotifikasi(id);Toast.success('Notifikasi dihapus');renderList();}
+function markAllRead(){Storage.getNotifikasi(currentUser.id).forEach(n=>Storage.updateNotifikasi(n.id,{dibaca:true}));Toast.success('Semua ditandai dibaca');renderList();}
+function clearAll(){showConfirm({title:'Hapus Semua',message:'Hapus semua notifikasi Anda?',onConfirm(){Storage.clearNotifikasi(currentUser.id);Toast.success('Semua dihapus');renderList();}});}
+renderList();
+</script>
+</body></html>
